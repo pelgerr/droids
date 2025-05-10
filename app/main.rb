@@ -2,6 +2,9 @@
 require 'app/boid.rb'
 require 'app/quadtree.rb'
 
+# Constants
+MAX_BOIDS = 315
+
 def mutate(src_dna)
   # transform the inheritde dna data
   mutated = src_dna.transform_values.with_index do |val, i|
@@ -54,27 +57,41 @@ def draw_boids(args)
 end
 
 def tick(args)
-  args.state.gen_counter ||= 1
+  # bg
   args.outputs.background_color = { r: 30, g: 30, b: 30, a: 255 }
+  # boids things
+  args.state.gen_counter ||= 1
+  # quadtree
+  args.state.quadtree ||= Quadtree.new({ x: 0, y: 0, w: Grid.w, h: Grid.h }, 4)
+  args.state.quadtree.clear # clear the quadtree to be repopulated each tick
   
-  # initialize
-  args.state.boids ||= Array.new(100) { Boid.new(rand(Grid.w), rand(Grid.h)) }
+  # initialize the core flock
+  args.state.boids ||= Array.new(MAX_BOIDS) { Boid.new(rand(Grid.w), rand(Grid.h)) }
+
+  # insert boids into quadtree
+  args.state.boids.each { |boid| args.state.quadtree.insert({ x: boid.x, y: boid.y, data: boid }) }
 
   # create a new boid & mutate every 5 seconds
-  if  Kernel.tick_count.zmod?(300) && !Kernel.tick_count.zero?
+  if Kernel.tick_count.zmod?(300) && !Kernel.tick_count.zero?
     args.state.gen_counter += 1
     parent = args.state.boids.sample
 
     args.state.boids << Boid.new(parent.x, parent.y, mutate(parent.dna))
-
-    # DEBUG
-    # show_message("#{args.state.boids.last} size: #{args.state.boids.last.dna.size_w_h}")
-    # show_message("#{args.state.boids.last} color: #{args.state.boids.last.dna.vis_red}, #{args.state.boids.last.dna.vis_green}, #{args.state.boids.last.dna.vis_blue}")
-    # END DEBUG
   end
 
   # update
-  args.state.boids.each { |boid| boid.update(args, args.state.boids) }
+  # n^2 update algorithm
+  # args.state.boids.each { |boid| boid.update(args, args.state.boids) }
+  # quadtree update algorithm
+  args.state.boids.each do |boid|
+    nearby_boids = args.state.quadtree.query({
+                                               x: boid.x - boid.dna.perception_radius,
+                                               y: boid.y - boid.dna.perception_radius,
+                                               w: 100,
+                                               h: 100
+                                             })
+    boid.update(args, nearby_boids.map { |b| b.data }) # Pass only nearby boids
+  end
 
   # destroy dead boids
   args.state.boids.reject! { |b| b.dna.expired }

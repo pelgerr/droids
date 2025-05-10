@@ -136,7 +136,7 @@ class Boid
     @y %= Grid.h
 
     # TODO This is not a good lifespan simulation LOL
-    args.state.boids.shift if args.state.boids.count > 200
+    args.state.boids.shift if args.state.boids.count > MAX_BOIDS
 
     # DEBUG
     # if args.state.boids.count > 200
