@@ -1,4 +1,4 @@
-def create_sgrid(args)
+def init_sgrid(args)
   args.state.sgrid_cell_size ||= args.state.avg_perception_radius
   args.state.sgrid_width ||= (Grid.w / args.state.sgrid_cell_size).ceil
   args.state.sgrid_height ||= (Grid.h / args.state.sgrid_cell_size).ceil

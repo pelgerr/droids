@@ -8,7 +8,6 @@ BASE_FLOCK_SIZE = 100
 
 def tick(args)
   ### initializations
-  args.state.show_debug ||= false
   # bg
   args.outputs.background_color = { r: 30, g: 30, b: 30, a: 255 }
   # generation counter
@@ -20,7 +19,7 @@ def tick(args)
   args.state.avg_perception_radius = args.state.boids.map { |b| b.dna.perception_radius }.sum / args.state.boids.length
 
   # Initialize spatial grid
-  create_sgrid(args)
+  init_sgrid(args) # one-time initializations
 
   # Clear grid
   clear_sgrid(args)
@@ -39,26 +38,11 @@ def tick(args)
   # destroy dead boids
   args.state.boids.shift if args.state.boids.count > MAX_BOIDS
 
-  # draw
+  # send boids to the child render target
   render_boids(args)
 
   # DEBUG
-  args.state.show_debug = !args.state.show_debug if args.inputs.keyboard.key_down.zero
-
-  if args.state.show_debug
-    # args.outputs.primitives << args.gtk.framerate_diagnostics_primitives
-    args.outputs.debug << "#{args.gtk.current_framerate.to_sf}"
-    args.outputs.debug << "Elapsed generations: #{args.state.gen_counter}"
-    args.outputs.debug << "Total boids: #{args.state.boids.length}"
-    draw_sgrid(args)
-    args.outputs[:rt_master].primitives << {
-      x: 0,
-      y: 0,
-      w: Grid.w,
-      h: Grid.h,
-      path: :rt_sgrid
-    }.sprite!
-  end
+  toggle_debug_overlay(args)
   # END DEBUG
 
   args.outputs.primitives << {
@@ -70,6 +54,7 @@ def tick(args)
   }.sprite!
 end
 
+# helper functions
 def mutate(src_dna)
   # transform the inheritde dna data
   mutated = src_dna.transform_values.with_index do |val, i|
@@ -121,7 +106,30 @@ def render_boids(args)
   end
 end
 
+
+# debug functions
 def show_message(msg)
   cur_time = Time.now
   p "#{cur_time.to_s.split[1]}: #{msg}"
+end
+
+def toggle_debug_overlay(args)
+  # toggle debug mode with the zero key
+  args.state.show_debug ||= false
+  args.state.show_debug = !args.state.show_debug if args.inputs.keyboard.key_down.zero
+
+  if args.state.show_debug
+    # args.outputs.primitives << args.gtk.framerate_diagnostics_primitives
+    args.outputs.debug << "#{args.gtk.current_framerate.to_sf}"
+    args.outputs.debug << "Elapsed generations: #{args.state.gen_counter}"
+    args.outputs.debug << "Total boids: #{args.state.boids.length}"
+    draw_sgrid(args)
+    args.outputs[:rt_master].primitives << {
+      x: 0,
+      y: 0,
+      w: Grid.w,
+      h: Grid.h,
+      path: :rt_sgrid
+    }.sprite!
+  end
 end
