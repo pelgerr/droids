@@ -21,8 +21,7 @@ class Boid
         size_h: 18,
         vis_red: 255,
         vis_green: 255,
-        vis_blue: 255,
-        expired: false
+        vis_blue: 255
       }
     else
       @dna = dna
@@ -32,12 +31,19 @@ class Boid
   def update(args, boids)
     # each boid will only be "conscious" of other boids within 50px
     perception_radius = dna.perception_radius
+    alignment_weight = dna.alignment_weight
+    cohesion_weight = dna.cohesion_weight
+    separation_weight = dna.separation_weight
+    
 
     # temp hashes for each part of the algoritm:
     # alignment (velocity), cohesion (direction), separation (social distancing)
-    alignment = { x: 0, y: 0 }
-    cohesion = { x: 0, y: 0 }
-    separation = { x: 0, y: 0 }
+    alignment = { x: 0.0, y: 0.0 }
+    cohesion_x = 0
+    cohesion_y = 0
+    separation_x = 0
+    separation_y = 0
+    
     # keep a count of the total number of other boids perceived and processed
     total = 0
     # steer forces
@@ -45,26 +51,31 @@ class Boid
     steer_y = 0.0
 
     boids.each do |other|
-      # find the distance (hypotenuse) between self and other boid
+      other_x = other.x
+      other_y = other.y
+      other_vx = other.vx
+      other_vy = other.vy
+      
+      # find the distance (hypotenuse) between self and other_boid
       # skip if the current boid is self or outside of the perception radius
       next if other == self
-      dist = Math.hypot(other.x - x, other.y - y)
+      dist = Math.hypot(other_x - x, other_y - y)
       next if dist > perception_radius
 
       # Alignment - sum the x and y velocities of each perceived boid
-      alignment.x += other.vx
-      alignment.y += other.vy
+      alignment.x += other_vx
+      alignment.y += other_vy
 
       # Cohesion - sum the x and y positions of each perceived boid
-      cohesion.x += other.x
-      cohesion.y += other.y
+      cohesion_x += other_x
+      cohesion_y += other_y
 
-      # Separation - try not to bump into other boids
+      # Separation - try not to bump into other_boids
       if dist < 25
         # guard against divide by zero cases
         factor = 1.0 / (dist + 0.01)
-        separation.x += (x - other.x) * factor
-        separation.y += (y - other.y) * factor
+        separation_x += (x - other_x) * factor
+        separation_y += (y - other_y) * factor
       end
 
       total += 1
@@ -76,29 +87,28 @@ class Boid
       alignment.y /= total
       alignment_mag = Math.hypot(alignment.x, alignment.y)
       # normalize and scale the magnitude for smooth motion
-      if alignment_mag > 0
-        alignment = Geometry.vec2_normalize(alignment)
-      end
+      alignment = Geometry.vec2_normalize(alignment) if alignment_mag > 0
+
       # scale strength by alighnment weight
-      alignment.x *= dna.alignment_weight
-      alignment.y *= dna.alignment_weight
+      alignment.x *= alignment_weight
+      alignment.y *= alignment_weight
 
       # Cohesion
       # avg the group's position (center of mass)
       # subtract current boid's position to get the vector to the group
       # scale by 0.05 to adjust gently then apply the dna encoded cohesion weight
-      cohesion.x = ((cohesion.x / total) - x) * 0.05
-      cohesion.y = ((cohesion.y / total) - y) * 0.05
-      cohesion.x *= dna.cohesion_weight
-      cohesion.y *= dna.cohesion_weight
+      cohesion_x = ((cohesion_x / total) - x) * 0.05
+      cohesion_y = ((cohesion_y / total) - y) * 0.05
+      cohesion_x *= cohesion_weight
+      cohesion_y *= cohesion_weight
 
       # Separation
-      separation.x *= dna.separation_weight
-      separation.y *= dna.separation_weight
+      separation_x *= separation_weight
+      separation_y *= separation_weight
 
       # Combine steering forces
-      steer_x += alignment.x + cohesion.x + separation.x
-      steer_y += alignment.y + cohesion.y + separation.y
+      steer_x += alignment.x + cohesion_x + separation_x
+      steer_y += alignment.y + cohesion_y + separation_y
     end
 
     # Limit steering force
@@ -118,13 +128,16 @@ class Boid
     speed = Math.hypot(@vx, @vy)
     min_speed = 0.5
     max_speed = dna.max_speed
+    div_x_speed = @vx / speed
+    div_y_speed = @vy / speed
+    
 
     if speed > max_speed
-      @vx = (@vx / speed) * max_speed
-      @vy = (@vy / speed) * max_speed
+      @vx = div_x_speed * max_speed
+      @vy = div_y_speed * max_speed
     elsif speed < min_speed
-      @vx = (@vx / speed) * min_speed
-      @vy = (@vy / speed) * min_speed
+      @vx = div_x_speed * min_speed
+      @vy = div_y_speed * min_speed
     end
 
     # update the boid's position with the new vectors
@@ -134,17 +147,6 @@ class Boid
     # Wrap around screen
     @x %= Grid.w
     @y %= Grid.h
-
-    # TODO This is not a good lifespan simulation LOL
-    args.state.boids.shift if args.state.boids.count > MAX_BOIDS
-
-    # DEBUG
-    # if args.state.boids.count > 200
-      # lucky = args.state.boids.shift
-      # show_message("#{lucky} has expired")
-    # end
-    # END DEBUG
-
   end
 end
 

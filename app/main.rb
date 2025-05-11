@@ -3,7 +3,80 @@ require 'app/boid.rb'
 require 'app/quadtree.rb'
 
 # Constants
-MAX_BOIDS = 315
+MAX_BOIDS = 300
+BASE_FLOCK_SIZE = 300
+
+def tick(args)
+  ### initializations
+  args.state.show_debug ||= false
+  # bg
+  args.outputs.background_color = { r: 30, g: 30, b: 30, a: 255 }
+  # generation counter
+  args.state.gen_counter ||= 1
+  # quadtree
+  args.state.quadtree ||= Quadtree.new({ x: 0, y: 0, w: Grid.w, h: Grid.h }, 4)
+  # clear the quadtree to be repopulated each tick
+  args.state.quadtree.clear
+  # initialize the core flock
+  args.state.boids ||= Array.new(BASE_FLOCK_SIZE) { Boid.new(rand(Grid.w), rand(Grid.h)) }
+
+  ### main loop
+  # insert boids into quadtree
+  args.state.boids.each { |boid| args.state.quadtree.insert({ x: boid.x, y: boid.y, data: boid }) }
+
+  # create a new boid & mutate every 5 seconds
+  if Kernel.tick_count.zmod?(300) && !Kernel.tick_count.zero?
+    args.state.gen_counter += 1
+    parent = args.state.boids.sample
+
+    args.state.boids << Boid.new(parent.x, parent.y, mutate(parent.dna))
+  end
+
+  # update boids
+  args.state.boids.each do |boid|
+    radius= boid.dna.perception_radius
+    nearby_boids = args.state.quadtree.query({
+                                               x: boid.x - radius,
+                                               y: boid.y - radius,
+                                               w: radius * 2,
+                                               h: radius * 2
+                                             })
+    boid.update(args, nearby_boids.map { |b| b.data }) # Pass only nearby boids
+  end
+
+  # destroy dead boids
+  args.state.boids.shift if args.state.boids.count > MAX_BOIDS
+
+  # draw
+  render_boids(args)
+
+  # DEBUG
+  args.state.show_debug = !args.state.show_debug if args.inputs.keyboard.key_down.zero
+
+  if args.state.show_debug
+    # args.outputs.primitives << args.gtk.framerate_diagnostics_primitives
+    args.outputs.debug << "#{args.gtk.current_framerate.to_sf}"
+    args.outputs.debug << "generations: #{args.state.gen_counter}"
+    args.outputs.debug << "boids: #{args.state.boids.length}"
+    args.state.quadtree.render_quadtree(args)
+    args.outputs[:rt_master].primitives << {
+      x: 0,
+      y: 0,
+      w: Grid.w,
+      h: Grid.h,
+      path: :rt_quadtree
+    }.sprite!
+  end
+  # END DEBUG
+
+  args.outputs.primitives << {
+    x: 0,
+    y: 0,
+    w: Grid.w,
+    h: Grid.h,
+    path: :rt_master
+  }.sprite!
+end
 
 def mutate(src_dna)
   # transform the inheritde dna data
@@ -38,8 +111,8 @@ def mutate(src_dna)
   return mutated
 end
 
-def draw_boids(args)
-  args.outputs.sprites << args.state.boids.map do |b|
+def render_boids(args)
+  args.outputs[:rt_master].primitives << args.state.boids.map do |b|
     {
       x: b.x - (0.5 * b.dna.size_w),
       y: b.y - (0.5 * b.dna.size_h),
@@ -52,59 +125,8 @@ def draw_boids(args)
       blendmode_enum: 1, # 1 --> default blending
       angle: Math.atan2(b.vy, b.vx).to_degrees,
       path: 'sprites/isometric/white.png'
-    }
+    }.sprite!
   end
-end
-
-def tick(args)
-  # bg
-  args.outputs.background_color = { r: 30, g: 30, b: 30, a: 255 }
-  # boids things
-  args.state.gen_counter ||= 1
-  # quadtree
-  args.state.quadtree ||= Quadtree.new({ x: 0, y: 0, w: Grid.w, h: Grid.h }, 4)
-  args.state.quadtree.clear # clear the quadtree to be repopulated each tick
-  
-  # initialize the core flock
-  args.state.boids ||= Array.new(MAX_BOIDS) { Boid.new(rand(Grid.w), rand(Grid.h)) }
-
-  # insert boids into quadtree
-  args.state.boids.each { |boid| args.state.quadtree.insert({ x: boid.x, y: boid.y, data: boid }) }
-
-  # create a new boid & mutate every 5 seconds
-  if Kernel.tick_count.zmod?(300) && !Kernel.tick_count.zero?
-    args.state.gen_counter += 1
-    parent = args.state.boids.sample
-
-    args.state.boids << Boid.new(parent.x, parent.y, mutate(parent.dna))
-  end
-
-  # update
-  # n^2 update algorithm
-  # args.state.boids.each { |boid| boid.update(args, args.state.boids) }
-  # quadtree update algorithm
-  args.state.boids.each do |boid|
-    nearby_boids = args.state.quadtree.query({
-                                               x: boid.x - boid.dna.perception_radius,
-                                               y: boid.y - boid.dna.perception_radius,
-                                               w: 100,
-                                               h: 100
-                                             })
-    boid.update(args, nearby_boids.map { |b| b.data }) # Pass only nearby boids
-  end
-
-  # destroy dead boids
-  args.state.boids.reject! { |b| b.dna.expired }
-
-  # draw
-  draw_boids(args)
-
-  # DEBUG
-  # args.outputs.primitives << args.gtk.framerate_diagnostics_primitives
-  args.outputs.debug << "#{args.gtk.current_framerate.to_sf}"
-  args.outputs.debug << "generations: #{args.state.gen_counter}"
-  args.outputs.debug << "boids: #{args.state.boids.length}"
-  # END DEBUG
 end
 
 def show_message(msg)
