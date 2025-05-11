@@ -28,16 +28,7 @@ class Boid
     end
   end
 
-  def update(args, boids_arr)
-    # sample a reasonable number of boids if the flock grows too large
-    # this is a performance optimization for when clumps become too dense
-    # if boids_arr.length > 200
-    #   boids = boids_arr.sample(100)
-    # else
-    #   boids = boids_arr
-    # end
-    boids = boids_arr
-
+  def update(args, boids)
     # each boid will only be "conscious" of other boids within 50px
     perception_radius = dna.perception_radius
     alignment_weight = dna.alignment_weight

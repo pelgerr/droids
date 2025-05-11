@@ -27,7 +27,7 @@ def tick(args)
   # Update grid
   update_sgrid(args)
 
-  # create a new boid & mutate every 5 seconds
+  # every 5 seconds create a new boid and mutate its DNA
   if Kernel.tick_count.zmod?(300) && !Kernel.tick_count.zero?
     args.state.gen_counter += 1
     parent = args.state.boids.sample
@@ -38,7 +38,7 @@ def tick(args)
   # destroy dead boids
   args.state.boids.shift if args.state.boids.count > MAX_BOIDS
 
-  # send boids to the child render target
+  # render boids to the master render target
   render_boids(args)
 
   # DEBUG
@@ -56,7 +56,7 @@ end
 
 # helper functions
 def mutate(src_dna)
-  # transform the inheritde dna data
+  # transform the inherited dna data
   mutated = src_dna.transform_values.with_index do |val, i|
     case src_dna.keys[i]
     when :alignment_weight then val + Numeric.rand(-1.0..1.0)
@@ -123,7 +123,7 @@ def toggle_debug_overlay(args)
     args.outputs.debug << "#{args.gtk.current_framerate.to_sf}"
     args.outputs.debug << "Elapsed generations: #{args.state.gen_counter}"
     args.outputs.debug << "Total boids: #{args.state.boids.length}"
-    draw_sgrid(args)
+    render_sgrid_debug(args)
     args.outputs[:rt_master].primitives << {
       x: 0,
       y: 0,

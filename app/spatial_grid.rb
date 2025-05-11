@@ -47,7 +47,7 @@ def update_sgrid(args)
   end
 end
 
-def draw_sgrid(args)
+def render_sgrid_debug(args)
   # Draw the spatial grid and highlight populated cells
   # Highlight populated cells with color intensity based on population
   args.state.sgrid_width.times do |x|
