@@ -29,7 +29,7 @@ class Boid
   end
 
   def update(args, boids)
-    # each boid will only be "conscious" of other boids within 50px
+    # each boid will only be "conscious" of other boids within the perception radius
     perception_radius = dna.perception_radius
     alignment_weight = dna.alignment_weight
     cohesion_weight = dna.cohesion_weight
@@ -38,7 +38,6 @@ class Boid
     perception_radius_squared = perception_radius * perception_radius
     separation_dist_squared = 25 * 25  
 
-    # temp hashes for each part of the algoritm:
     # alignment (velocity), cohesion (direction), separation (social distancing)
     alignment_x = 0
     alignment_y = 0
@@ -54,7 +53,7 @@ class Boid
     steer_y = 0.0
 
     boids.each do |other|
-      # skip if the current boid is self or outside of the perception radius
+      # skip if the current boid is self
       next if other == self
 
       # pre-calculations
@@ -66,6 +65,7 @@ class Boid
       dy = other_y - y
       dist_squared = dx * dx + dy * dy
       
+      # skip if the current boid is outside of the perception radius
       next if dist_squared > perception_radius_squared
 
       # Alignment - sum the x and y velocities of each perceived boid
@@ -86,6 +86,7 @@ class Boid
         separation_y += (y - other_y) * factor
       end
 
+      # increase the total count of boids perceived
       total += 1
     end
 
@@ -140,6 +141,7 @@ class Boid
     @vy += steer_y
 
     # Limit speed
+    # pre-calculations
     speed_squared = @vx * @vx + @vy * @vy
     min_speed = 0.5
     max_speed = dna.max_speed
