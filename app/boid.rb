@@ -28,50 +28,67 @@ class Boid
     end
   end
 
-  def update(args, boids)
+  def update(args, boids_arr)
+    # sample a reasonable number of boids if the flock grows too large
+    # this is a performance optimization for when clumps become too dense
+    # if boids_arr.length > 200
+    #   boids = boids_arr.sample(100)
+    # else
+    #   boids = boids_arr
+    # end
+    boids = boids_arr
+
     # each boid will only be "conscious" of other boids within 50px
     perception_radius = dna.perception_radius
     alignment_weight = dna.alignment_weight
     cohesion_weight = dna.cohesion_weight
     separation_weight = dna.separation_weight
-    
+    # Pre-calculate squared distances for more efficient comparisons
+    perception_radius_squared = perception_radius * perception_radius
+    separation_dist_squared = 25 * 25  
 
     # temp hashes for each part of the algoritm:
     # alignment (velocity), cohesion (direction), separation (social distancing)
-    alignment = { x: 0.0, y: 0.0 }
+    alignment_x = 0
+    alignment_y = 0
     cohesion_x = 0
     cohesion_y = 0
     separation_x = 0
     separation_y = 0
-    
     # keep a count of the total number of other boids perceived and processed
     total = 0
+
     # steer forces
     steer_x = 0.0
     steer_y = 0.0
 
     boids.each do |other|
+      # skip if the current boid is self or outside of the perception radius
+      next if other == self
+
+      # pre-calculations
       other_x = other.x
       other_y = other.y
       other_vx = other.vx
       other_vy = other.vy
+      dx = other_x - x
+      dy = other_y - y
+      dist_squared = dx * dx + dy * dy
       
-      # find the distance (hypotenuse) between self and other_boid
-      # skip if the current boid is self or outside of the perception radius
-      next if other == self
-      dist = Math.hypot(other_x - x, other_y - y)
-      next if dist > perception_radius
+      next if dist_squared > perception_radius_squared
 
       # Alignment - sum the x and y velocities of each perceived boid
-      alignment.x += other_vx
-      alignment.y += other_vy
+      alignment_x += other_vx
+      alignment_y += other_vy
 
       # Cohesion - sum the x and y positions of each perceived boid
       cohesion_x += other_x
       cohesion_y += other_y
 
       # Separation - try not to bump into other_boids
-      if dist < 25
+      if dist_squared < separation_dist_squared
+        # find the distance between self and other_boid
+        dist = Math.sqrt(dist_squared)
         # guard against divide by zero cases
         factor = 1.0 / (dist + 0.01)
         separation_x += (x - other_x) * factor
@@ -83,20 +100,25 @@ class Boid
 
     if total > 0
       # Alignment
-      alignment.x /= total
-      alignment.y /= total
-      alignment_mag = Math.hypot(alignment.x, alignment.y)
+      alignment_x /= total
+      alignment_y /= total
+      alignment_mag_squared = alignment_x * alignment_x + alignment_y * alignment_y
       # normalize and scale the magnitude for smooth motion
-      alignment = Geometry.vec2_normalize(alignment) if alignment_mag > 0
+      if alignment_mag_squared > 0
+        alignment_mag = Math.sqrt(alignment_mag_squared)
+        alignment_x /= alignment_mag
+        alignment_y /= alignment_mag
+      end
 
-      # scale strength by alighnment weight
-      alignment.x *= alignment_weight
-      alignment.y *= alignment_weight
+      # WEIGHTS
+      # scale by alighnment weight
+      alignment_x *= alignment_weight
+      alignment_y *= alignment_weight
 
       # Cohesion
       # avg the group's position (center of mass)
       # subtract current boid's position to get the vector to the group
-      # scale by 0.05 to adjust gently then apply the dna encoded cohesion weight
+      # scale by 0.05 to adjust gently then apply the cohesion weight
       cohesion_x = ((cohesion_x / total) - x) * 0.05
       cohesion_y = ((cohesion_y / total) - y) * 0.05
       cohesion_x *= cohesion_weight
@@ -107,15 +129,17 @@ class Boid
       separation_y *= separation_weight
 
       # Combine steering forces
-      steer_x += alignment.x + cohesion_x + separation_x
-      steer_y += alignment.y + cohesion_y + separation_y
+      steer_x += alignment_x + cohesion_x + separation_x
+      steer_y += alignment_y + cohesion_y + separation_y
     end
 
     # Limit steering force
-    steer_mag = Math.hypot(steer_x, steer_y)
+    steer_mag_squared = steer_x * steer_x + steer_y * steer_y
     max_force = 0.5
+    max_force_squared = max_force * max_force
 
-    if steer_mag > max_force
+    if steer_mag_squared > max_force_squared
+      steer_mag = Math.sqrt(steer_mag_squared)
       steer_x = (steer_x / steer_mag) * max_force
       steer_y = (steer_y / steer_mag) * max_force
     end
@@ -125,19 +149,21 @@ class Boid
     @vy += steer_y
 
     # Limit speed
-    speed = Math.hypot(@vx, @vy)
+    speed_squared = @vx * @vx + @vy * @vy
     min_speed = 0.5
     max_speed = dna.max_speed
-    div_x_speed = @vx / speed
-    div_y_speed = @vy / speed
+    min_speed_squared = min_speed * min_speed
+    max_speed_squared = max_speed * max_speed
     
 
-    if speed > max_speed
-      @vx = div_x_speed * max_speed
-      @vy = div_y_speed * max_speed
-    elsif speed < min_speed
-      @vx = div_x_speed * min_speed
-      @vy = div_y_speed * min_speed
+    if speed_squared > max_speed_squared
+      speed = Math.sqrt(speed_squared)
+      @vx = (@vx / speed) * max_speed
+      @vy = (@vy / speed) * max_speed
+    elsif speed_squared < min_speed_squared
+      speed = Math.sqrt(speed_squared)
+      @vx = (@vx / speed) * min_speed
+      @vy = (@vy / speed) * min_speed
     end
 
     # update the boid's position with the new vectors
@@ -149,4 +175,5 @@ class Boid
     @y %= Grid.h
   end
 end
+
 

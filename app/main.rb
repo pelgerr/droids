@@ -1,10 +1,10 @@
 # Boid algorithm implementation
 require 'app/boid.rb'
-require 'app/quadtree.rb'
+require 'app/spatial_grid.rb'
 
 # Constants
-MAX_BOIDS = 300
-BASE_FLOCK_SIZE = 300
+MAX_BOIDS = 500
+BASE_FLOCK_SIZE = 100
 
 def tick(args)
   ### initializations
@@ -13,16 +13,20 @@ def tick(args)
   args.outputs.background_color = { r: 30, g: 30, b: 30, a: 255 }
   # generation counter
   args.state.gen_counter ||= 1
-  # quadtree
-  args.state.quadtree ||= Quadtree.new({ x: 0, y: 0, w: Grid.w, h: Grid.h }, 4)
-  # clear the quadtree to be repopulated each tick
-  args.state.quadtree.clear
   # initialize the core flock
   args.state.boids ||= Array.new(BASE_FLOCK_SIZE) { Boid.new(rand(Grid.w), rand(Grid.h)) }
 
   ### main loop
-  # insert boids into quadtree
-  args.state.boids.each { |boid| args.state.quadtree.insert({ x: boid.x, y: boid.y, data: boid }) }
+  args.state.avg_perception_radius = args.state.boids.map { |b| b.dna.perception_radius }.sum / args.state.boids.length
+
+  # Initialize spatial grid
+  create_sgrid(args)
+
+  # Clear grid
+  clear_sgrid(args)
+
+  # Update grid
+  update_sgrid(args)
 
   # create a new boid & mutate every 5 seconds
   if Kernel.tick_count.zmod?(300) && !Kernel.tick_count.zero?
@@ -30,18 +34,6 @@ def tick(args)
     parent = args.state.boids.sample
 
     args.state.boids << Boid.new(parent.x, parent.y, mutate(parent.dna))
-  end
-
-  # update boids
-  args.state.boids.each do |boid|
-    radius= boid.dna.perception_radius
-    nearby_boids = args.state.quadtree.query({
-                                               x: boid.x - radius,
-                                               y: boid.y - radius,
-                                               w: radius * 2,
-                                               h: radius * 2
-                                             })
-    boid.update(args, nearby_boids.map { |b| b.data }) # Pass only nearby boids
   end
 
   # destroy dead boids
@@ -56,15 +48,15 @@ def tick(args)
   if args.state.show_debug
     # args.outputs.primitives << args.gtk.framerate_diagnostics_primitives
     args.outputs.debug << "#{args.gtk.current_framerate.to_sf}"
-    args.outputs.debug << "generations: #{args.state.gen_counter}"
-    args.outputs.debug << "boids: #{args.state.boids.length}"
-    args.state.quadtree.render_quadtree(args)
+    args.outputs.debug << "Elapsed generations: #{args.state.gen_counter}"
+    args.outputs.debug << "Total boids: #{args.state.boids.length}"
+    draw_sgrid(args)
     args.outputs[:rt_master].primitives << {
       x: 0,
       y: 0,
       w: Grid.w,
       h: Grid.h,
-      path: :rt_quadtree
+      path: :rt_sgrid
     }.sprite!
   end
   # END DEBUG
