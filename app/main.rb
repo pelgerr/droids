@@ -3,7 +3,7 @@ require 'app/boid.rb'
 require 'app/spatial_grid.rb'
 
 # Constants
-MAX_BOIDS = 500
+MAX_BOIDS = 715
 BASE_FLOCK_SIZE = 100
 
 def tick(args)
@@ -16,7 +16,7 @@ def tick(args)
   args.state.boids ||= Array.new(BASE_FLOCK_SIZE) { Boid.new(rand(Grid.w), rand(Grid.h)) }
 
   ### main loop
-  args.state.avg_perception_radius = args.state.boids.map { |b| b.dna.perception_radius }.sum / args.state.boids.length
+  args.state.avg_perception_radius = (args.state.boids.map { |b| b.dna.perception_radius }.sum / args.state.boids.length) / 2
 
   # Initialize spatial grid
   init_sgrid(args) # one-time initializations
