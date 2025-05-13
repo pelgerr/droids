@@ -11,14 +11,13 @@ class Boid
     # DNA hash
     if dna.nil?
       @dna = {
-        birth: Kernel.tick_count,
         alignment_weight: Numeric.rand(0.5..2.0),
         cohesion_weight: Numeric.rand(0.5..2.0),
         separation_weight: Numeric.rand(1.5..3.0),
         perception_radius: Numeric.rand(40..100),
         max_speed: Numeric.rand(2.0..5.0),
-        size_w: 24,
-        size_h: 18,
+        size_w: 22,
+        size_h: 22,
         vis_red: 255,
         vis_green: 255,
         vis_blue: 255

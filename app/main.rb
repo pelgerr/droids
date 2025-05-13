@@ -3,13 +3,13 @@ require 'app/boid.rb'
 require 'app/spatial_grid.rb'
 
 # Constants
-MAX_BOIDS = 715
+MAX_BOIDS = 700
 BASE_FLOCK_SIZE = 100
 
 def tick(args)
   ### initializations
   # bg
-  args.outputs.background_color = { r: 30, g: 30, b: 30, a: 255 }
+  args.outputs.background_color = { r: 20, g: 20, b: 20, a: 255 }
   # generation counter
   args.state.gen_counter ||= 1
   # initialize the core flock
@@ -89,6 +89,12 @@ def mutate(src_dna)
 end
 
 def render_boids(args)
+  loop_start = 0
+  sprite_count = 2
+  frame_hold = 5
+  should_loop = true
+  sprite_index = loop_start.frame_index(sprite_count, frame_hold, should_loop)
+
   args.outputs[:rt_master].primitives << args.state.boids.map do |b|
     {
       x: b.x - (0.5 * b.dna.size_w),
@@ -100,8 +106,8 @@ def render_boids(args)
       b: b.dna.vis_blue,
       a: 255,
       blendmode_enum: 1, # 1 --> default blending
-      angle: Math.atan2(b.vy, b.vx).to_degrees,
-      path: 'sprites/isometric/white.png'
+      angle: (Math.atan2(b.vy, b.vx).to_degrees) - 90,
+      path: "sprites/broid/broid#{sprite_index}.png"
     }.sprite!
   end
 end
